@@ -1,10 +1,43 @@
-import { useNavigation } from "expo-router";
-import { useEffect } from "react";
-import { Image, StyleSheet, Text, View } from "react-native";
+import { useSSO, useUser } from "@clerk/expo";
+import * as AuthSession from "expo-auth-session";
+import { useNavigation, useRouter } from "expo-router";
+import * as WebBrowser from "expo-web-browser";
+import React, { useCallback, useEffect } from "react";
+import {
+  Image,
+  Platform,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
+} from "react-native";
 import Colors from "./services/Colors";
+import { axiosClient } from "./services/GlobalApi";
+
+// Preloads the browser for Android devices to reduce authentication load time
+// See: https://docs.expo.dev/guides/authentication/#improving-user-experience
+export const useWarmUpBrowser = () => {
+  useEffect(() => {
+    if (Platform.OS !== "android") return;
+    void WebBrowser.warmUpAsync();
+    return () => {
+      // Cleanup: closes browser when component unmounts
+      void WebBrowser.coolDownAsync();
+    };
+  }, []);
+};
+
+WebBrowser.maybeCompleteAuthSession();
 
 export default function Index() {
   const navigation = useNavigation();
+  useWarmUpBrowser();
+
+  // Use the `useSSO()` hook to access the `startSSOFlow()` method
+  const { startSSOFlow } = useSSO();
+  const router = useRouter();
+  const { user } = useUser();
+  console.log(user);
 
   useEffect(() => {
     navigation.setOptions({
@@ -12,6 +45,67 @@ export default function Index() {
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  useEffect(() => {
+    if (user) {
+      createNewUser();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user]);
+
+  const createNewUser = async () => {
+    try {
+      const result = await axiosClient.post("/user-lists", {
+        data: {
+          fullName: user?.fullName,
+          email: user?.primaryEmailAddress?.emailAddress,
+        },
+      });
+      console.log(result.data);
+    } catch (e) {
+      console.log(e);
+    }
+  };
+
+  const onPress = useCallback(async () => {
+    try {
+      // Start the authentication process by calling `startSSOFlow()`
+      const { createdSessionId, setActive, signIn, signUp } =
+        await startSSOFlow({
+          strategy: "oauth_google",
+          // For web, defaults to current path
+          // For native, you must pass a scheme, like AuthSession.makeRedirectUri({ scheme, path })
+          // For more info, see https://docs.expo.dev/versions/latest/sdk/auth-session/#authsessionmakeredirecturioptions
+          redirectUrl: AuthSession.makeRedirectUri(),
+        });
+
+      // If sign in was successful, set the active session
+      if (createdSessionId) {
+        setActive!({
+          session: createdSessionId,
+          // Handle session tasks
+          // See https://clerk.com/docs/guides/development/custom-flows/authentication/session-tasks
+          navigate: async ({ session, decorateUrl }) => {
+            if (session?.currentTask) {
+              console.log(session?.currentTask);
+              router.push("/");
+              return;
+            }
+
+            router.push("/");
+          },
+        });
+      } else {
+        // If there is no `createdSessionId`,
+        // there are missing requirements, such as MFA
+        // See https://clerk.com/docs/guides/development/custom-flows/authentication/oauth-connections#handle-missing-requirements
+      }
+    } catch (err) {
+      // See https://clerk.com/docs/guides/development/custom-flows/error-handling
+      // for more info on error handling
+      console.error(JSON.stringify(err, null, 2));
+    }
+  }, [router, startSSOFlow]);
 
   return (
     <View style={styles.container}>
@@ -34,7 +128,8 @@ export default function Index() {
         >
           Discover thousands of local businesses in one click.
         </Text>
-        <View
+        <TouchableOpacity
+          onPress={onPress}
           style={[
             styles.button,
             {
@@ -56,7 +151,7 @@ export default function Index() {
           >
             Sign In With Google
           </Text>
-        </View>
+        </TouchableOpacity>
         <View
           style={[
             styles.button,
