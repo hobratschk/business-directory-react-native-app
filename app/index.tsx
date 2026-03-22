@@ -62,8 +62,10 @@ export default function Index() {
         },
       });
       console.log(result.data);
+      router.replace("/tabs/Home");
     } catch (e) {
       console.log(e);
+      router.replace("/tabs/Home");
     }
   };
 
@@ -88,11 +90,11 @@ export default function Index() {
           navigate: async ({ session, decorateUrl }) => {
             if (session?.currentTask) {
               console.log(session?.currentTask);
-              router.push("/");
+              router.replace("/tabs/Home");
               return;
             }
 
-            router.push("/");
+            router.replace("/tabs/Home");
           },
         });
       } else {
