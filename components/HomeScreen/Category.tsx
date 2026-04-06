@@ -3,14 +3,14 @@ import { axiosClient } from "@/app/services/GlobalApi";
 import React, { useEffect } from "react";
 import { FlatList, Image, Text, TouchableOpacity, View } from "react-native";
 
-type categoryType = {
+export type CategoryType = {
   name: string;
   premium: boolean;
   icon: { url: string };
 };
 
 export default function Category() {
-  const [categoryList, setCategoryList] = React.useState<categoryType[]>([]);
+  const [categoryList, setCategoryList] = React.useState<CategoryType[]>([]);
 
   useEffect(() => {
     GetCategories();
@@ -20,7 +20,6 @@ export default function Category() {
     const result = await axiosClient.get(
       "/categories?filters[premium][$eq]=true&populate=*",
     );
-    console.log(JSON.stringify(result.data.data));
     setCategoryList(result?.data?.data);
   };
   return (
