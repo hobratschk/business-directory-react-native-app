@@ -4,7 +4,7 @@ import { CategoryType } from "@/components/HomeScreen/Category";
 import React, { useEffect } from "react";
 import { ActivityIndicator, FlatList, Image, Text, View } from "react-native";
 
-type BusinessType = {
+export type BusinessType = {
   name: string;
   address: string;
   premium: boolean;
